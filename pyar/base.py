@@ -16,7 +16,6 @@
 """
 
 
-from .adapter import IAdapter
 from .exception import AdapterTypeException, AdapterNotExistsException
 
 
@@ -53,3 +52,6 @@ class PyAR(object):
             raise AdapterNotExistsException('Adapter [%s] does not exists.' % name)
 
         return cls.__adapters[name]
+
+
+from .adapter import IAdapter

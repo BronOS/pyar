@@ -31,6 +31,11 @@ class AdapterNotExistsException(PyARException):
     pass
 
 
+class AdapterExecuteException(PyARException):
+    """Adapter execute exception."""
+    pass
+
+
 class AdapterConfigKeyException(PyARException):
     """Adapters config key does not exists exception."""
     pass
@@ -40,3 +45,7 @@ class ModelTypeException(PyARException):
     """Model type exception."""
     pass
 
+
+class ModelFieldNameException(PyARException):
+    """Field name of model exception."""
+    pass
