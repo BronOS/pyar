@@ -253,7 +253,9 @@ class AModelData(IModelData, IModelNew):
         :rtype: None
         """
         if key[0] != '_':
-            if not getattr(self, key) is None and issubclass(getattr(self.__class__, key), IModel):
+            if getattr(self, key) is not None \
+                    and hasattr(self.__class__, key) \
+                    and issubclass(getattr(self.__class__, key), IModel):
                 super().__setattr__(key, getattr(self.__class__, key)(value, self.is_new()))
                 if key in self.__data:
                     self.__data.pop(key)
@@ -267,20 +269,50 @@ class AModelData(IModelData, IModelNew):
 
         :param key: Attribute name.
         :type key: str
-        :rtype: str|list|dict
+        :rtype: str|list|dict|None
         """
         if key in self.__data:
             return self.__data[key]
         return None
 
+    def __delattr__(self, key):
+        """Removes models attribute.
+
+        :param key: Attribute name.
+        :type key: str
+        :rtype: None
+        """
+        if key in self.__data:
+            del self.__data[key]
+        else:
+            super().__delattr__(key)
+
+    def get_attr(self, attr):
+        """Returns attributes value if it exists and None otherwise.
+
+        :param attr: Attribute name.
+        :type attr: str
+        :rtype: str|list|dict|None
+        """
+        return getattr(self, attr)
+
+    def del_attr(self, attr):
+        """Returns attributes value if it exists and None otherwise.
+
+        :param attr: Attribute name.
+        :type attr: str
+        :rtype: str|list|dict|None
+        """
+        return delattr(self, attr)
+
 
 class AModelAdapter(IModelAdapter):
     """Provides interfaces to work with adapter."""
 
-    __read_adapter__ = None
+    _read_adapter_ = None
     "Models read adapter name."
 
-    __write_adapter__ = None
+    _write_adapter_ = None
     "Models write adapter name."
 
     @classmethod
@@ -289,7 +321,7 @@ class AModelAdapter(IModelAdapter):
 
         :rtype: str
         """
-        return cls.__read_adapter__
+        return cls._read_adapter_
 
     @classmethod
     def get_write_adapter(cls):
@@ -297,10 +329,10 @@ class AModelAdapter(IModelAdapter):
 
         :rtype: str
         """
-        return cls.__write_adapter__
+        return cls._write_adapter_
 
     @classmethod
-    def __get_read_adapter_inst(cls):
+    def get_read_adapter_inst(cls):
         """Returns read adapter instance.
 
         :rtype: IAdapter
@@ -308,7 +340,7 @@ class AModelAdapter(IModelAdapter):
         return PyAR.get_adapter(cls.get_read_adapter())
 
     @classmethod
-    def __get_write_adapter_inst(cls):
+    def get_write_adapter_inst(cls):
         """Returns write adapter instance.
 
         :rtype: IAdapter
@@ -321,7 +353,7 @@ class AModelAdapter(IModelAdapter):
 
         :rtype: list
         """
-        return cls.__get_read_adapter_inst().read(cls, **kwargs)
+        return cls.get_read_adapter_inst().read(cls, **kwargs)
 
     @classmethod
     def find_one(cls, **kwargs):
@@ -337,21 +369,21 @@ class AModelAdapter(IModelAdapter):
 
         :rtype: bool
         """
-        return self.__get_write_adapter_inst().create(self, **kwargs)
+        return self.get_write_adapter_inst().create(self, **kwargs)
 
     def update(self, **kwargs):
         """Updates model.
 
         :rtype: bool
         """
-        return self.__get_write_adapter_inst().update(self, **kwargs)
+        return self.get_write_adapter_inst().update(self, **kwargs)
 
     def delete(self, **kwargs):
         """Deletes model.
 
         :rtype: bool
         """
-        return self.__get_write_adapter_inst().delete(self, **kwargs)
+        return self.get_write_adapter_inst().delete(self, **kwargs)
 
     def save(self, **kwargs):
         """Saves model.
@@ -364,10 +396,26 @@ class AModelAdapter(IModelAdapter):
             return self.update(**kwargs)
 
 
-class AModel(IModel, AModelData, AModelAdapter):
-    """PyAR model abstract class."""
+class ModelMetaRegister(type):
+    """PyAR model register class."""
 
-    __resource__ = None
+    def __new__(cls, name, bases, attrs):
+        """Register model.
+
+        :param name: Name of the class.
+        :param bases: Base classes (tuple).
+        :param attrs: Attributes defined for the class.
+        :rtype: IModel
+        """
+        new_cls = type.__new__(cls, name, bases, attrs)
+        PyAR.add_model(new_cls)
+        return new_cls
+
+
+class AModel(IModel, AModelData, AModelAdapter, metaclass=ModelMetaRegister):
+    """PyAR abstract model."""
+
+    _resource_ = None
     "Models resource name."
 
     def __init__(self, data=None, is_new=True):
@@ -403,8 +451,8 @@ class AModel(IModel, AModelData, AModelAdapter):
 
         :rtype: str
         """
-        if cls.__resource__ is None:
+        if cls._resource_ is None:
             return '_'.join([item.lower() for item in re.findall('[A-Z][a-z]*', cls.__name__)])
 
-        return cls.__resource__
+        return cls._resource_
 

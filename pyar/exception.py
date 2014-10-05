@@ -46,6 +46,27 @@ class ModelTypeException(PyARException):
     pass
 
 
+class ModelNotExistsException(PyARException):
+    """Model not exists exception."""
+    pass
+
+
 class ModelFieldNameException(PyARException):
     """Field name of model exception."""
     pass
+
+
+class SQLModelPartNotExistsException(PyARException):
+    """Part doesn't exists exception."""
+    pass
+
+
+class RelationFieldNotExistsException(PyARException):
+    """Relation field doesn't exists exception."""
+    pass
+
+
+class SQLAdapterExecuteException(PyARException):
+    """SQL adapter execute exception."""
+    pass
+

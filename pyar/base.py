@@ -16,11 +16,14 @@
 """
 
 
-from .exception import AdapterTypeException, AdapterNotExistsException
+from .exception import AdapterTypeException, AdapterNotExistsException, ModelNotExistsException
 
 
 class PyAR(object):
     """Base python active record class."""
+
+    __models = dict()
+    "PyAR models."
 
     __adapters = dict()
     "PyAR adapters."
@@ -52,6 +55,33 @@ class PyAR(object):
             raise AdapterNotExistsException('Adapter [%s] does not exists.' % name)
 
         return cls.__adapters[name]
+
+    @classmethod
+    def get_models(cls):
+        """Returns all registered models.
+
+        :rtype: dict
+        """
+        return cls.__models
+
+    @classmethod
+    def get_model(cls, model_name):
+        """Returns registered model.
+
+        :rtype: IModel
+        """
+        if model_name not in cls.__models:
+            raise ModelNotExistsException('Model [%s] not exists.')
+
+        return cls.__models[model_name]
+
+    @classmethod
+    def add_model(cls, model_cls):
+        """Register model.
+
+        :rtype: None
+        """
+        cls.__models[model_cls.__name__] = model_cls
 
 
 from .adapter import IAdapter
