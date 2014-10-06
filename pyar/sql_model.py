@@ -215,7 +215,7 @@ class ASQLModelFinder(ASQLModelPK):
         :type id: int|str
         :rtype: ASQLModel
         """
-        return cls.find_one(**{cls.get_pk(): str(id)})
+        return cls.find_one(**{cls.get_pk(): id if type(id) == list else str(id)})
 
     @classmethod
     def find_by_query(cls, query, params=dict(), **kwargs):

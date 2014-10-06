@@ -21,7 +21,6 @@ from ..exception import SQLAdapterExecuteException
 
 import pymysql
 import re
-import copy
 
 
 class MySQLAdapter(AAdapter):
@@ -164,14 +163,21 @@ class MySQLAdapter(AAdapter):
         :type kwargs: dict
         :rtype: str
         """
-        part = where if where is not None else ''
+        where_part = where if where is not None else ''
 
-        if len(part) and len(kwargs):
-            part += ' AND '
+        if len(where_part) and len(kwargs):
+            where_part += ' AND '
 
-        part += ' AND '.join(['%s.%s = :%s' % (resource, key, key) for key in kwargs.keys()])
+        where_part += ' AND '.join(
+            ['%s.%s %s' % (
+                resource,
+                key,
+                'IN (%s)' % ','.join([pymysql.escape_string(str(val)) for val in value]) if type(value) == list else
+                '= :%s' % key
+            ) for key, value in kwargs.items()]
+        )
 
-        return ' WHERE ' + part if len(part) else ''
+        return ' WHERE ' + where_part if len(where_part) else ''
 
     def get_last_query(self):
         """Returns last query.
