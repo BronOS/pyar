@@ -17,7 +17,7 @@
 
 
 from .exception import AdapterConfigKeyException, ModelTypeException
-from .model import IModel
+from .model import ModelData
 
 
 class IAdapter(object):
@@ -27,7 +27,7 @@ class IAdapter(object):
         """Read method.
 
         :param model: PyAR model.
-        :type IModel
+        :type ModelData
         :rtype: list
         """
         pass
@@ -36,7 +36,7 @@ class IAdapter(object):
         """Create model.
 
         :param model: PyAR model.
-        :type IModel
+        :type ModelData
         :rtype: bool
         """
         pass
@@ -45,7 +45,7 @@ class IAdapter(object):
         """Update model.
 
         :param model: PyAR model.
-        :type IModel
+        :type ModelData
         :rtype: bool
         """
         pass
@@ -54,7 +54,7 @@ class IAdapter(object):
         """Delete model.
 
         :param model: PyAR model.
-        :type IModel
+        :type ModelData
         :rtype: bool
         """
         pass
@@ -137,27 +137,27 @@ class AAdapter(AAdapterConfig, IAdapter):
         """Checks model type.
 
         :param model: Methods model.
-        :type model: IModel
+        :type model: ModelData
         :rtype: None
         """
-        if not isinstance(model, IModel):
-            raise ModelTypeException('Model must be an instance of IModel')
+        if not isinstance(model, ModelData):
+            raise ModelTypeException('Model must be an instance of ModelData')
 
     def read(self, model_cls, **kwargs):
         """Read method.
 
         :param model_cls: PyAR model class.
-        :type IModel
+        :type ModelData
         :rtype: list
         """
-        if not issubclass(model_cls, IModel):
-            raise ModelTypeException('Model must be an instance of IModel')
+        if not issubclass(model_cls, ModelData):
+            raise ModelTypeException('Model must be an instance of ModelData')
 
     def create(self, model, **kwargs):
         """Create model.
 
         :param model: PyAR model.
-        :type IModel
+        :type ModelData
         :rtype: bool
         """
         self.__check_model_type(model)
@@ -166,7 +166,7 @@ class AAdapter(AAdapterConfig, IAdapter):
         """Update model.
 
         :param model: PyAR model.
-        :type IModel
+        :type ModelData
         :rtype: bool
         """
         self.__check_model_type(model)
@@ -175,7 +175,7 @@ class AAdapter(AAdapterConfig, IAdapter):
         """Delete model.
 
         :param model: PyAR model.
-        :type IModel
+        :type ModelData
         :rtype: bool
         """
         self.__check_model_type(model)

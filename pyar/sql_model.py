@@ -16,12 +16,12 @@
 """
 
 
-from .model import AModel
+from .model import Model, ModelData, ModelWriter, ModelReader
 from .exception import RelationFieldNotExistsException, SQLAdapterExecuteException
 from .base import PyAR
 
 
-class ASQLModelLastData(AModel):
+class SQLModelLastData(object):
     """SQL model last data."""
 
     _last_query = None
@@ -47,7 +47,7 @@ class ASQLModelLastData(AModel):
         return cls._last_result
 
 
-class ASQLModelPK(ASQLModelLastData):
+class SQLModelPK(ModelData):
     """SQL model primary key helper."""
 
     _pk_ = None
@@ -66,11 +66,30 @@ class ASQLModelPK(ASQLModelLastData):
 
         :rtype: int
         """
-        return getattr(self, self.get_pk())
+        return self.get_attr(self.get_pk())
 
 
-class ASQLModelFinder(ASQLModelPK):
-    """SQL model find helper."""
+class SQLModelData(ModelData):
+    """Provides interfaces to work with data."""
+
+    def get_data_models(self):
+        """Returns dict of relations fields of this model.
+
+        :rtype: dict
+        """
+        ret = dict()
+
+        for key, value in self.__class__.__dict__.items():
+            if isinstance(value, Relation):
+                value = self.get_attr(key)
+                if isinstance(value, SQLModelData):
+                    ret[key] = value
+
+        return ret
+
+
+class SQLModelReader(SQLModelPK, SQLModelLastData, ModelReader, SQLModelData):
+    """SQL model reader."""
 
     @classmethod
     def find(cls, select=None, joins=None, where=None, having=None, limit=None, offset=None, distinct=False, group=None,
@@ -189,7 +208,7 @@ class ASQLModelFinder(ASQLModelPK):
         :param kwargs: Allows to specify query conditions with AND statement.
         Representing the WHERE-part of the SQL statement.
         :type kwargs: dict
-        :rtype: ASQLModel
+        :rtype: SQLModel
         """
         kwargs['select'] = select
         kwargs['joins'] = joins
@@ -213,7 +232,7 @@ class ASQLModelFinder(ASQLModelPK):
 
         :param id: Value of primary key.
         :type id: int|str
-        :rtype: ASQLModel
+        :rtype: SQLModel
         """
         return cls.find_one(**{cls.get_pk(): id if type(id) == list else str(id)})
 
@@ -231,25 +250,10 @@ class ASQLModelFinder(ASQLModelPK):
         return cls.find(query=query, params=params, **kwargs)
 
 
-class ASQLModel(ASQLModelFinder):
-    """PyAR abstract sql model."""
+class SQLModelWriter(SQLModelPK, SQLModelLastData, ModelWriter, SQLModelData):
+    """SQL model writer."""
 
-    def get_data_models(self):
-        """Returns dict of relations fields of this model.
-
-        :rtype: dict
-        """
-        ret = dict()
-
-        for key, value in self.__class__.__dict__.items():
-            if isinstance(value, Relation):
-                value = self.get_attr(key)
-                if isinstance(value, ASQLModel):
-                    ret[key] = value
-
-        return ret
-
-    def save(self, transactional=False, with_relations=False):
+    def save(self, transactional=True, with_relations=False):
         """Saves model.
 
         :rtype: bool
@@ -272,7 +276,7 @@ class ASQLModel(ASQLModelFinder):
         try:
             super().create()
             self.set_is_new(False)
-            setattr(self, self.get_pk(), self.get_write_adapter_inst().get_last_result().lastrowid)
+            self.set_attr(self.get_pk(), self.get_write_adapter_inst().get_last_result().lastrowid)
             last_query.append(self.get_write_adapter_inst().get_last_query())
             self.__class__._last_result = self.get_write_adapter_inst().get_last_result()
         except SQLAdapterExecuteException as exc:
@@ -347,6 +351,11 @@ class ASQLModel(ASQLModelFinder):
         return True
 
 
+class SQLModel(SQLModelReader, SQLModelWriter):
+    """PyAR SQL model."""
+    pass
+
+
 class Relation(property):
     """PyAR models relation class."""
 
@@ -356,7 +365,7 @@ class Relation(property):
         """Sets relation config.
 
         :param model_cls: Foreign model.
-        :type model_cls: ASQLModel|str
+        :type model_cls: SQLModel|str
         :param foreign_key: Foreign field name.
         :type foreign_key: str
         :param relation_key: Relation field name.
@@ -417,7 +426,7 @@ class Relation(property):
     def model_cls(self):
         """Model class getter.
 
-        :rtype: ASQLModel
+        :rtype: SQLModel
         """
         if type(self.__model_cls) is str:
             self.__model_cls = PyAR.get_model(self.__model_cls)
@@ -482,7 +491,7 @@ class Relation(property):
         """Loads relation data and stores it into self.__data attribute.
 
         :param parent_model: Relation model.
-        :type parent_model: ASQLModel
+        :type parent_model: SQLModel
         :rtype: ASQLModel|list<ASQLModel>
         """
         parent_model_hash = hash(parent_model)
@@ -529,7 +538,7 @@ class HasOneRelation(Relation):
     def load(self):
         """Loads relation data.
 
-        :rtype: ASQLModel
+        :rtype: SQLModel
         """
         if self.relation_key is None:
             self.relation_key = self.parent_model.get_pk()
@@ -551,7 +560,7 @@ class BelongToRelation(Relation):
     def load(self):
         """Loads relation data.
 
-        :rtype: ASQLModel
+        :rtype: SQLModel
         """
         if self.relation_key is None:
             self.relation_key = '%s_%s' % (self.model_cls.get_resource(), self.model_cls.get_pk())

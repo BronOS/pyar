@@ -23,124 +23,26 @@ from .base import PyAR
 from .exception import ModelFieldNameException
 
 
-class IModelData(object):
-    """Model data interface."""
+class ModelNew(object):
+    """Provides interfaces to work with models is new flag."""
 
-    def set_data(self, data):
-        """Sets models data.
+    def __init__(self, is_new=True):
+        """Constructor.
+        Sets models data.
 
         :param data: Models data.
         :type data: dict
-        :rtype: None
         """
-        pass
-
-    def get_data(self, with_models=True):
-        """Returns models data.
-
-        :param with_models: Adds information about nested models to the dict.
-        :type with_models: bool
-        :rtype: dict
-        """
-        pass
-
-    def get_data_models(self):
-        """Returns dict of model's fields of this model.
-
-        :rtype: dict
-        """
-        pass
-
-    def get_origin_data(self):
-        """Returns models origin data.
-
-        :rtype: dict
-        """
-        pass
-
-    def to_dict(self, with_models=True):
-        """Returns dict representation of model.
-
-        :param with_models: Adds information about nested models to the dict.
-        :type with_models: bool
-        :rtype: dict
-        """
-        pass
-
-
-class IModelAdapter(object):
-    """Model adapter interface."""
-
-    @classmethod
-    def get_read_adapter(cls):
-        """Returns models read adapter name.
-
-        :rtype: str
-        """
-        pass
-
-    @classmethod
-    def get_write_adapter(cls):
-        """Returns models write adapter name.
-
-        :rtype: str
-        """
-        pass
-
-    @classmethod
-    def find(cls, **kwargs):
-        """Find entities and returns it as list of models.
-
-        :rtype: list
-        """
-        pass
-
-    @classmethod
-    def find_one(cls, **kwargs):
-        """Returns firs element of found entities.
-
-        :rtype: IModel|None
-        """
-        pass
-
-    def create(self, **kwargs):
-        """Creates model.
-
-        :rtype: bool
-        """
-        pass
-
-    def update(self, **kwargs):
-        """Updates model.
-
-        :rtype: bool
-        """
-        pass
-
-    def delete(self, **kwargs):
-        """Deletes model.
-
-        :rtype: bool
-        """
-        pass
-
-    def save(self, **kwargs):
-        """Saves model.
-
-        :rtype: bool
-        """
-        pass
-
-
-class IModelNew(object):
-    """Is model new interface."""
+        self.__is_new = True
+        self.set_is_new(is_new)
+        super().__init__()
 
     def is_new(self):
         """Returns whether this model is new.
 
         :rtype: bool
         """
-        pass
+        return self.__is_new
 
     def set_is_new(self, value):
         """Sets is new state for model.
@@ -149,22 +51,41 @@ class IModelNew(object):
         :type value: bool
         :rtype: None
         """
-        pass
+        self.__is_new = bool(value)
 
 
-class IModel(IModelAdapter, IModelData, IModelNew):
-    """PyAR model interface."""
+class ModelResource(object):
+    """Provides interfaces to work with models resource"""
+
+    _resource_ = None
+    "Models resource name."
+
+    _read_resource_ = None
+    "Models read resource name."
+
+    _write_resource_ = None
+    "Models write resource name."
 
     @classmethod
-    def get_resource(cls):
+    def get_resource(cls, is_read_mode=True):
         """Returns models resource name.
 
+        :param is_read_mode: Resource mode.
+        :type is_read_mode: bool
         :rtype: str
         """
-        pass
+        resource = cls._read_resource_ if is_read_mode else cls._write_resource_
+
+        if resource is None:
+            resource = cls._resource_
+
+        if resource is None:
+            return '_'.join([item.lower() for item in re.findall('[A-Z][a-z]*', cls.__name__)])
+
+        return resource
 
 
-class AModelData(IModelData, IModelNew):
+class ModelData(object):
     """Provides interfaces to work with data."""
 
     def __init__(self, data=None):
@@ -203,7 +124,7 @@ class AModelData(IModelData, IModelNew):
         ret = dict()
 
         for key, value in self.__dict__.items():
-            if isinstance(value, IModel):
+            if isinstance(value, ModelData):
                 ret[key] = value
 
         return ret
@@ -239,7 +160,7 @@ class AModelData(IModelData, IModelNew):
         ret = dict()
 
         for key, value in self.get_data(with_models).items():
-            ret[key] = value if not isinstance(value, IModel) else value.to_dict(with_models)
+            ret[key] = value if not isinstance(value, ModelData) else value.to_dict(with_models)
 
         return ret
 
@@ -287,6 +208,17 @@ class AModelData(IModelData, IModelNew):
         else:
             super().__delattr__(key)
 
+    def set_attr(self, name, value):
+        """Sets models attribute.
+
+        :param name: Attribute name.
+        :type name: str
+        :param value: Attribute name.
+        :type value: str|list|dict|None
+        :rtype: None
+        """
+        setattr(self, name, value)
+
     def get_attr(self, attr):
         """Returns attributes value if it exists and None otherwise.
 
@@ -306,14 +238,39 @@ class AModelData(IModelData, IModelNew):
         return delattr(self, attr)
 
 
-class AModelAdapter(IModelAdapter):
-    """Provides interfaces to work with adapter."""
+class ModelMetaRegister(type):
+    """PyAR model register class."""
+
+    def __new__(cls, name, bases, attrs):
+        """Register model.
+
+        :param name: Name of the class.
+        :param bases: Base classes (tuple).
+        :param attrs: Attributes defined for the class.
+        :rtype: IModel
+        """
+        new_cls = type.__new__(cls, name, bases, attrs)
+        PyAR.add_model(new_cls)
+        return new_cls
+
+
+class ModelReader(ModelNew, ModelResource, ModelData, metaclass=ModelMetaRegister):
+    """Provides interfaces to work with read adapter."""
 
     _read_adapter_ = None
     "Models read adapter name."
 
-    _write_adapter_ = None
-    "Models write adapter name."
+    def __init__(self, data=None, is_new=True):
+        """Constructor.
+        Sets models data.
+
+        :param data: Models data.
+        :type data: dict
+        """
+        self.__is_new = True
+        self.set_is_new(is_new)
+        ModelNew.__init__(self, is_new)
+        ModelData.__init__(self, data)
 
     @classmethod
     def get_read_adapter(cls):
@@ -324,28 +281,12 @@ class AModelAdapter(IModelAdapter):
         return cls._read_adapter_
 
     @classmethod
-    def get_write_adapter(cls):
-        """Returns models write adapter name.
-
-        :rtype: str
-        """
-        return cls._write_adapter_
-
-    @classmethod
     def get_read_adapter_inst(cls):
         """Returns read adapter instance.
 
         :rtype: IAdapter
         """
         return PyAR.get_adapter(cls.get_read_adapter())
-
-    @classmethod
-    def get_write_adapter_inst(cls):
-        """Returns write adapter instance.
-
-        :rtype: IAdapter
-        """
-        return PyAR.get_adapter(cls.get_write_adapter())
 
     @classmethod
     def find(cls, **kwargs):
@@ -363,6 +304,41 @@ class AModelAdapter(IModelAdapter):
         """
         result = cls.find(**kwargs)
         return result[0] if len(result) else None
+
+
+class ModelWriter(ModelNew, ModelResource, ModelData, metaclass=ModelMetaRegister):
+    """Provides interfaces to work with adapter."""
+
+    _write_adapter_ = None
+    "Models write adapter name."
+
+    def __init__(self, data=None, is_new=True):
+        """Constructor.
+        Sets models data.
+
+        :param data: Models data.
+        :type data: dict
+        """
+        self.__is_new = True
+        self.set_is_new(is_new)
+        ModelNew.__init__(self, is_new)
+        ModelData.__init__(self, data)
+
+    @classmethod
+    def get_write_adapter(cls):
+        """Returns models write adapter name.
+
+        :rtype: str
+        """
+        return cls._write_adapter_
+
+    @classmethod
+    def get_write_adapter_inst(cls):
+        """Returns write adapter instance.
+
+        :rtype: IAdapter
+        """
+        return PyAR.get_adapter(cls.get_write_adapter())
 
     def create(self, **kwargs):
         """Creates model.
@@ -396,63 +372,6 @@ class AModelAdapter(IModelAdapter):
             return self.update(**kwargs)
 
 
-class ModelMetaRegister(type):
-    """PyAR model register class."""
-
-    def __new__(cls, name, bases, attrs):
-        """Register model.
-
-        :param name: Name of the class.
-        :param bases: Base classes (tuple).
-        :param attrs: Attributes defined for the class.
-        :rtype: IModel
-        """
-        new_cls = type.__new__(cls, name, bases, attrs)
-        PyAR.add_model(new_cls)
-        return new_cls
-
-
-class AModel(IModel, AModelData, AModelAdapter, metaclass=ModelMetaRegister):
+class Model(ModelReader, ModelWriter):
     """PyAR abstract model."""
-
-    _resource_ = None
-    "Models resource name."
-
-    def __init__(self, data=None, is_new=True):
-        """Constructor.
-        Sets models data.
-
-        :param data: Models data.
-        :type data: dict
-        """
-        self.__is_new = True
-        self.set_is_new(is_new)
-        super().__init__(data)
-
-    def is_new(self):
-        """Returns whether this model is new.
-
-        :rtype: bool
-        """
-        return self.__is_new
-
-    def set_is_new(self, value):
-        """Sets is new state for model.
-
-        :param value: Value of state.
-        :type value: bool
-        :rtype: None
-        """
-        self.__is_new = bool(value)
-
-    @classmethod
-    def get_resource(cls):
-        """Returns models resource name.
-
-        :rtype: str
-        """
-        if cls._resource_ is None:
-            return '_'.join([item.lower() for item in re.findall('[A-Z][a-z]*', cls.__name__)])
-
-        return cls._resource_
-
+    pass

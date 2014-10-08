@@ -16,8 +16,9 @@
 """
 
 from ..adapter import AAdapter
-from ..model import IModel
-from ..exception import SQLAdapterExecuteException
+from ..model import Model
+from ..sql_model import SQLModel
+from ..exception import SQLAdapterExecuteException, ModelTypeException
 
 import pymysql
 import re
@@ -57,6 +58,17 @@ class MySQLAdapter(AAdapter):
         super().__init__(**kwargs)
         self.__conn = pymysql.connect(**kwargs)
 
+    @staticmethod
+    def __check_model_type(model):
+        """Checks model type.
+
+        :param model: Methods model.
+        :type model: SQLModel
+        :rtype: None
+        """
+        if not isinstance(model, SQLModel):
+            raise ModelTypeException('Model must be an instance of SQLData')
+
     def execute(self, query, cursor_type=None):
         """Executes query.
 
@@ -84,7 +96,7 @@ class MySQLAdapter(AAdapter):
         """Build SQL query and execute it.
 
         :param model_cls: PyAR model class.
-        :type model_cls: IModel
+        :type model_cls: SQLModel
         :param select: Allows to specify query field. Representing the SELECT-part of the SQL statement.
         :type select: str
         :param joins: Allows to specify row sql joins. Representing the JOIN-part of the SQL statement.
@@ -211,10 +223,10 @@ class MySQLAdapter(AAdapter):
         """Returns table columns information.
 
         :param model: PyAR sql model.
-        :type model: ASQLModel
+        :type model: SQLModel
         :rtype: dict
         """
-        cursor = self.execute('SHOW COLUMNS FROM %s' % model.get_resource(), pymysql.cursors.DictCursor)
+        cursor = self.execute('SHOW COLUMNS FROM %s' % model.get_resource(False), pymysql.cursors.DictCursor)
         ret = dict((row['Field'], row) for row in cursor)
         return ret
 
@@ -222,7 +234,7 @@ class MySQLAdapter(AAdapter):
         """Returns filtered model's data.
 
         :param model: PyAR sql model.
-        :type model: ASQLModel
+        :type model: SQLModel
         :rtype: dict
         """
         columns = self.__get_columns(model)
@@ -256,7 +268,7 @@ class MySQLAdapter(AAdapter):
         """Create model.
 
         :param model: PyAR model.
-        :type model: ASQLModel
+        :type model: SQLModel
         :rtype: bool
         """
         super().create(model)
@@ -267,7 +279,7 @@ class MySQLAdapter(AAdapter):
             raise SQLAdapterExecuteException('Nothing to insert.')
 
         query = 'INSERT INTO %s (%s) VALUES (%s)' % (
-            model.get_resource(),
+            model.get_resource(False),
             ','.join(data.keys()),
             ','.join(data.values()),
         )
@@ -279,7 +291,7 @@ class MySQLAdapter(AAdapter):
         """Update model.
 
         :param model: PyAR model.
-        :type ASQLModel
+        :type model: SQLModel
         :rtype: bool
         """
         super().update(model)
@@ -290,7 +302,7 @@ class MySQLAdapter(AAdapter):
             raise SQLAdapterExecuteException('Nothing to update.')
 
         query = 'UPDATE %s SET %s WHERE %s = %s' % (
-            model.get_resource(),
+            model.get_resource(False),
             ', '.join(['%s = %s' % (key, value) for key, value in data.items()]),
             model.get_pk(),
             pymysql.escape_string(str(model.get_id())),
@@ -303,13 +315,13 @@ class MySQLAdapter(AAdapter):
         """Delete model.
 
         :param model: PyAR model.
-        :type ASQLModel
+        :type model: SQLModel
         :rtype: bool
         """
         super().delete(model)
 
         query = 'DELETE FROM %s WHERE %s = %s LIMIT 1' % (
-            model.get_resource(),
+            model.get_resource(False),
             model.get_pk(),
             pymysql.escape_string(str(model.get_id())),
         )

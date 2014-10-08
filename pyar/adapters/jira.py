@@ -16,7 +16,7 @@
 """
 
 from ..adapter import AAdapter
-from ..model import IModel
+from ..model import ModelData
 from ..exception import AdapterExecuteException
 
 import requests
@@ -76,7 +76,7 @@ class JiraReaderAdapter(_AUrl):
         """Reads from jira with received parameters.
 
         :param model_cls: PyAR model class.
-        :type model_cls: IModel
+        :type model_cls: ModelData
         :rtype: list
         """
         params = {

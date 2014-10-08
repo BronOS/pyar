@@ -53,7 +53,7 @@ class User(AModel):
     _read_adapter_ = 'jira'
 
 
-# Read from JIRA rest api.
+# Read data from JIRA rest api.
 user = User.find_one(username='user1')
 # Create user in the MySQL database.
 user.create()
@@ -74,6 +74,10 @@ The models attribute _resource_ is used by adapters through get_resource() metho
 maps _resource_ to the table name.
 By default _resource_ equals to None, so get_resource() method is transformed models name to the uncamelaized view separated by "_".
 For example: Project resource will be looks like "project" and UserHistory - user_history.
+
+It is possible to define separate read and write resources by setting _read_resource_ and _write_resource_. 
+Read/write resources will be override main resource.  
+
  
 #### Example - using custom resource
 ```
@@ -174,6 +178,7 @@ SQL Finders
 
 
 
-Relations
+
+SQL Relations
 ===
 
